@@ -33,6 +33,7 @@ find_package(Vulkan REQUIRED)
 
 set(MagnumVk_SRCS
     Extensions.cpp
+    Handle.cpp
     Result.cpp
     Version.cpp)
 
@@ -46,6 +47,7 @@ set(MagnumVk_HEADERS
     Enums.h
     Extensions.h
     ExtensionProperties.h
+    Handle.h
     Instance.h
     Integration.h
     LayerProperties.h
