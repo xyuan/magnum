@@ -1,5 +1,3 @@
-#ifndef Magnum_Vk_Vk_h
-#define Magnum_Vk_Vk_h
 /*
     This file is part of Magnum.
 
@@ -25,23 +23,34 @@
     DEALINGS IN THE SOFTWARE.
 */
 
-/** @file
- * @brief Forward declarations for the @ref Magnum::Vk namespace
- */
+#include <Corrade/TestSuite/Tester.h>
 
-#include "Magnum/Magnum.h"
+#include "Magnum/Vk/LayerProperties.h"
 
-namespace Magnum { namespace Vk {
+namespace Magnum { namespace Vk { namespace Test { namespace {
 
-#ifndef DOXYGEN_GENERATING_OUTPUT
-class Extension;
-class InstanceExtension;
-class LayerProperties;
+struct LayerPropertiesTest: TestSuite::Tester {
+    explicit LayerPropertiesTest();
 
-enum class Result: Int;
-enum class Version: UnsignedInt;
-#endif
+    void constructCopy();
+    void constructMove();
+};
 
-}}
+LayerPropertiesTest::LayerPropertiesTest() {
+    addTests({&LayerPropertiesTest::constructCopy,
+              &LayerPropertiesTest::constructMove});
+}
 
-#endif
+void LayerPropertiesTest::constructCopy() {
+    CORRADE_VERIFY(!(std::is_constructible<LayerProperties, const LayerProperties&>{}));
+    CORRADE_VERIFY(!(std::is_assignable<LayerProperties, const LayerProperties&>{}));
+}
+
+void LayerPropertiesTest::constructMove() {
+    CORRADE_VERIFY(std::is_nothrow_move_constructible<LayerProperties>::value);
+    CORRADE_VERIFY(std::is_nothrow_move_assignable<LayerProperties>::value);
+}
+
+}}}}
+
+CORRADE_TEST_MAIN(Magnum::Vk::Test::LayerPropertiesTest)
