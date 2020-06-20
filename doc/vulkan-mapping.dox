@@ -136,7 +136,7 @@ Vulkan function                         | Matching API
 @fn_vk{CreateFramebuffer}, \n @fn_vk{DestroyFramebuffer} | |
 @fn_vk{CreateImage}, \n @fn_vk{DestroyImage} | |
 @fn_vk{CreateImageView}, \n @fn_vk{DestroyImageView} | |
-@fn_vk{CreateInstance}, \n @fn_vk{DestroyInstance} | |
+@fn_vk{CreateInstance}, \n @fn_vk{DestroyInstance} | @ref Instance constructor and destructor
 @fn_vk{CreatePipeline}, \n @fn_vk{DestroyPipeline} | |
 @fn_vk{CreatePipelineCache}, \n @fn_vk{DestroyPipelineCache} | |
 @fn_vk{CreatePipelineLayout}, \n @fn_vk{DestroyPipelineLayout} | |
@@ -293,6 +293,24 @@ Vulkan function                         | Matching API
 Vulkan function                         | Matching API
 --------------------------------------- | ------------
 @fn_vk{WaitForFences}                   | |
+
+@section vulkan-mapping-structures Structures
+
+@subsection vulkan-mapping-structures-a A
+
+@m_class{m-fullwidth}
+
+Vulkan structure                        | Matching API
+--------------------------------------- | ------------
+@type_vk{ApplicationInfo}               | @ref InstanceCreateInfo
+
+@m_class{m-fullwidth}
+
+@subsection vulkan-mapping-structures-i I
+
+Vulkan structure                        | Matching API
+--------------------------------------- | ------------
+@type_vk{InstanceCreateInfo}            | @ref InstanceCreateInfo
 
 */
 
