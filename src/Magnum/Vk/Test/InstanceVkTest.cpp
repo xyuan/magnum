@@ -45,6 +45,7 @@ struct InstanceVkTest: TestSuite::Tester {
     explicit InstanceVkTest();
 
     void createInfoConstructDefault();
+    void createInfoConstructNoImplicitExtensions();
     void createInfoApplicationInfo();
     void createInfoLayers();
     void createInfoExtensions();
@@ -136,6 +137,7 @@ struct {
 
 InstanceVkTest::InstanceVkTest() {
     addTests({&InstanceVkTest::createInfoConstructDefault,
+              &InstanceVkTest::createInfoConstructNoImplicitExtensions,
               &InstanceVkTest::createInfoApplicationInfo,
               &InstanceVkTest::createInfoLayers,
               &InstanceVkTest::createInfoExtensions,
@@ -159,6 +161,21 @@ using namespace Containers::Literals;
 
 void InstanceVkTest::createInfoConstructDefault() {
     InstanceCreateInfo info;
+    CORRADE_VERIFY(info->sType);
+    CORRADE_VERIFY(!info->pNext);
+    CORRADE_VERIFY(!info->ppEnabledLayerNames);
+    CORRADE_COMPARE(info->enabledLayerCount, 0);
+    /* Extensions might or might not be enabled */
+
+    CORRADE_VERIFY(info->pApplicationInfo);
+    CORRADE_COMPARE(Version(info->pApplicationInfo->apiVersion), enumerateInstanceVersion());
+    CORRADE_COMPARE(info->pApplicationInfo->applicationVersion, 0);
+    CORRADE_COMPARE(info->pApplicationInfo->engineVersion, 0);
+    CORRADE_COMPARE(info->pApplicationInfo->pEngineName, "Magnum"_s);
+}
+
+void InstanceVkTest::createInfoConstructNoImplicitExtensions() {
+    InstanceCreateInfo info{InstanceCreateInfo::Flag::NoImplicitExtensions};
     CORRADE_VERIFY(info->sType);
     CORRADE_VERIFY(!info->pNext);
     CORRADE_VERIFY(!info->ppEnabledLayerNames);
@@ -220,7 +237,7 @@ void InstanceVkTest::createInfoLayers() {
 }
 
 void InstanceVkTest::createInfoExtensions() {
-    InstanceCreateInfo info;
+    InstanceCreateInfo info{InstanceCreateInfo::Flag::NoImplicitExtensions};
     CORRADE_VERIFY(!info->ppEnabledExtensionNames);
     CORRADE_COMPARE(info->enabledExtensionCount, 0);
 
@@ -248,7 +265,7 @@ void InstanceVkTest::createInfoCopiedStrings() {
     Containers::StringView globalButNotNullTerminated = "VK_LAYER_KHRONOS_validation3"_s.except(1);
     Containers::String localButNullTerminated = Extensions::KHR::external_memory_capabilities::string();
 
-    InstanceCreateInfo info;
+    InstanceCreateInfo info{InstanceCreateInfo::Flag::NoImplicitExtensions};
     info.setApplicationInfo(localButNullTerminated, {})
         .addEnabledLayers({globalButNotNullTerminated})
         .addEnabledExtensions({localButNullTerminated});
@@ -318,7 +335,8 @@ void InstanceVkTest::constructCommandLineDisable() {
     if(!enumerateInstanceExtensionProperties({"VK_LAYER_KHRONOS_validation"}).isSupported<Extensions::EXT::validation_features>())
         CORRADE_SKIP("VK_EXT_validation_features not supported, can't test");
 
-    InstanceCreateInfo info{Int(data.argsDisable.size()), data.argsDisable};
+    InstanceCreateInfo info{Int(data.argsDisable.size()), data.argsDisable,
+        InstanceCreateInfo::Flag::NoImplicitExtensions};
     info.setApplicationInfo("InstanceVkTest", version(0, 0, 1))
         .addEnabledLayers({"VK_LAYER_KHRONOS_validation"_s})
         .addEnabledExtensions<Extensions::EXT::debug_report,
@@ -352,7 +370,8 @@ void InstanceVkTest::constructCommandLineEnable() {
     if(!enumerateInstanceExtensionProperties({"VK_LAYER_KHRONOS_validation"}).isSupported<Extensions::EXT::validation_features>())
         CORRADE_SKIP("VK_EXT_validation_features not supported, can't test");
 
-    InstanceCreateInfo info{Int(data.argsEnable.size()), data.argsEnable};
+    InstanceCreateInfo info{Int(data.argsEnable.size()), data.argsEnable,
+        InstanceCreateInfo::Flag::NoImplicitExtensions};
     /* Nothing enabled by the application */
 
     std::ostringstream out;
