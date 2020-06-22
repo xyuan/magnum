@@ -23,22 +23,46 @@
     DEALINGS IN THE SOFTWARE.
 */
 
-#include "InstanceState.h"
+#include <sstream>
+#include <Corrade/TestSuite/Tester.h>
+#include <Corrade/Utility/DebugStl.h>
 
-#include "Magnum/Vk/Extensions.h"
-#include "Magnum/Vk/Instance.h"
 #include "Magnum/Vk/DeviceProperties.h"
 
-namespace Magnum { namespace Vk { namespace Implementation {
+namespace Magnum { namespace Vk { namespace Test { namespace {
 
-InstanceState::InstanceState(Instance& instance, Int argc, const char** argv): argc{argc}, argv{argv} {
-    if(instance.isVersionSupported(Version::Vk11)) {
-        getPhysicalDevicePropertiesImplementation = &DeviceProperties::getPropertiesImplementationVulkan11;
-    } else if(instance.isExtensionEnabled<Extensions::KHR::get_physical_device_properties2>()) {
-        getPhysicalDevicePropertiesImplementation = &DeviceProperties::getPropertiesImplementationKHR;
-    } else {
-        getPhysicalDevicePropertiesImplementation = DeviceProperties::getPropertiesImplementationDefault;
-    }
+struct DevicePropertiesTest: TestSuite::Tester {
+    explicit DevicePropertiesTest();
+
+    void constructCopy();
+    void constructMove();
+
+    void debugDeviceType();
+};
+
+DevicePropertiesTest::DevicePropertiesTest() {
+    addTests({&DevicePropertiesTest::constructCopy,
+              &DevicePropertiesTest::constructMove,
+
+              &DevicePropertiesTest::debugDeviceType});
 }
 
-}}}
+void DevicePropertiesTest::constructCopy() {
+    CORRADE_VERIFY(!(std::is_constructible<DeviceProperties, const DeviceProperties&>{}));
+    CORRADE_VERIFY(!(std::is_assignable<DeviceProperties, const DeviceProperties&>{}));
+}
+
+void DevicePropertiesTest::constructMove() {
+    CORRADE_VERIFY(std::is_nothrow_move_constructible<DeviceProperties>::value);
+    CORRADE_VERIFY(std::is_nothrow_move_assignable<DeviceProperties>::value);
+}
+
+void DevicePropertiesTest::debugDeviceType() {
+    std::ostringstream out;
+    Debug{&out} << DeviceType::DiscreteGpu << DeviceType(-10007655);
+    CORRADE_COMPARE(out.str(), "Vk::DeviceType::DiscreteGpu Vk::DeviceType(-10007655)\n");
+}
+
+}}}}
+
+CORRADE_TEST_MAIN(Magnum::Vk::Test::DevicePropertiesTest)
