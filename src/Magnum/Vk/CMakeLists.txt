@@ -40,9 +40,11 @@ set(MagnumVk_SRCS
     Version.cpp
 
     Implementation/Arguments.cpp
+    Implementation/DeviceState.cpp
     Implementation/InstanceState.cpp)
 
 set(MagnumVk_GracefulAssert_SRCS
+    Device.cpp
     DeviceProperties.cpp
     Enums.cpp
     ExtensionProperties.cpp
@@ -67,6 +69,7 @@ set(MagnumVk_HEADERS
 
 set(MagnumVk_PRIVATE_HEADERS
     Implementation/Arguments.h
+    Implementation/DeviceState.h
     Implementation/InstanceState.h
 
     Implementation/compressedPixelFormatMapping.hpp

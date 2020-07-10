@@ -278,6 +278,7 @@ class MAGNUM_VK_EXPORT DeviceProperties {
         #ifndef DOXYGEN_GENERATING_OUTPUT
         /* The DAMN THING lists this among friends, which is AN IMPLEMENTATION
            DETAIL */
+        friend DeviceCreateInfo;
         friend MAGNUM_VK_EXPORT Containers::Array<DeviceProperties> enumerateDevices(Instance&);
         #endif
 
