@@ -26,6 +26,7 @@
 #include "DeviceProperties.h"
 
 #include <Corrade/Containers/Array.h>
+#include <Corrade/Containers/EnumSet.hpp>
 #include <Corrade/Containers/Optional.h>
 #include <Corrade/Containers/StringView.h>
 #include <Corrade/Utility/Arguments.h>
@@ -42,6 +43,7 @@ namespace Magnum { namespace Vk {
 
 struct DeviceProperties::State {
     VkPhysicalDeviceProperties2 properties{};
+    Containers::Array<VkQueueFamilyProperties2> queueFamilyProperties;
 };
 
 DeviceProperties::DeviceProperties(Instance& instance, VkPhysicalDevice handle): _instance{instance}, _handle{handle} {}
@@ -92,6 +94,80 @@ ExtensionProperties DeviceProperties::enumerateExtensionProperties(Containers::A
 
 ExtensionProperties DeviceProperties::enumerateExtensionProperties(std::initializer_list<Containers::StringView> layers) {
     return enumerateExtensionProperties(Containers::arrayView(layers));
+}
+
+Containers::ArrayView<const VkQueueFamilyProperties2> DeviceProperties::queueFamilyProperties() {
+    if(!_state) _state.emplace();
+
+    /* Fetch if not already */
+    if(_state->queueFamilyProperties.empty()) {
+        UnsignedInt count;
+        _instance->state().getPhysicalDeviceQueueFamilyProperties(*this, count, nullptr);
+
+        _state->queueFamilyProperties = Containers::Array<VkQueueFamilyProperties2>{Containers::NoInit, count};
+        _instance->state().getPhysicalDeviceQueueFamilyProperties(*this, count, _state->queueFamilyProperties);
+        CORRADE_INTERNAL_ASSERT(count == _state->queueFamilyProperties.size());
+    }
+
+    return _state->queueFamilyProperties;
+}
+
+void DeviceProperties::getQueueFamilyPropertiesImplementationDefault(DeviceProperties& self, UnsignedInt& count, VkQueueFamilyProperties2* properties) {
+    (**self._instance).GetPhysicalDeviceQueueFamilyProperties(self._handle,  &count, reinterpret_cast<VkQueueFamilyProperties*>(properties));
+
+    /* "Sparsen" the returned data to the version 2 structure layout. Go
+       backwards so we don't overwrite the yet-to-be-processed data; if the
+       pointer is null we were just querying the count */
+    if(properties) {
+        Containers::ArrayView<VkQueueFamilyProperties> src{reinterpret_cast<VkQueueFamilyProperties*>(properties), count};
+        Containers::ArrayView<VkQueueFamilyProperties2> dst{properties, count};
+        for(std::size_t i = count; i != 0; --i) {
+            dst[i - 1].sType = VK_STRUCTURE_TYPE_QUEUE_FAMILY_PROPERTIES_2;
+            dst[i - 1].pNext = nullptr;
+            dst[i - 1].queueFamilyProperties = src[i - 1];
+        }
+    }
+}
+
+void DeviceProperties::getQueueFamilyPropertiesImplementationKHR(DeviceProperties& self, UnsignedInt& count, VkQueueFamilyProperties2* properties) {
+    return (**self._instance).GetPhysicalDeviceQueueFamilyProperties2KHR(self._handle, &count, properties);
+}
+
+void DeviceProperties::getQueueFamilyPropertiesImplementationVulkan11(DeviceProperties& self, UnsignedInt& count, VkQueueFamilyProperties2* properties) {
+    return (**self._instance).GetPhysicalDeviceQueueFamilyProperties2(self._handle, &count, properties);
+}
+
+UnsignedInt DeviceProperties::queueFamilyCount() {
+    return queueFamilyProperties().size();
+}
+
+UnsignedInt DeviceProperties::queueFamilySize(const UnsignedInt id) {
+    const Containers::ArrayView<const VkQueueFamilyProperties2> properties = queueFamilyProperties();
+    CORRADE_ASSERT(id < properties.size(),
+        "Vk::DeviceProperties::queueFamilySize(): index" << id << "out of range for" << properties.size() << "entries", {});
+    return properties[id].queueFamilyProperties.queueCount;
+}
+
+QueueFlags DeviceProperties::queueFamilyFlags(const UnsignedInt id) {
+    const Containers::ArrayView<const VkQueueFamilyProperties2> properties = queueFamilyProperties();
+    CORRADE_ASSERT(id < properties.size(),
+        "Vk::DeviceProperties::flags(): index" << id << "out of range for" << properties.size() << "entries", {});
+    return QueueFlag(properties[id].queueFamilyProperties.queueFlags);
+}
+
+UnsignedInt DeviceProperties::pickQueueFamily(const QueueFlags flags) {
+    Containers::Optional<UnsignedInt> id = tryPickQueueFamily(flags);
+    if(id) return *id;
+    std::exit(1);
+}
+
+Containers::Optional<UnsignedInt> DeviceProperties::tryPickQueueFamily(const QueueFlags flags) {
+    const Containers::ArrayView<const VkQueueFamilyProperties2> properties = queueFamilyProperties();
+    for(UnsignedInt i = 0; i != properties.size(); ++i)
+        if(QueueFlag(properties[i].queueFamilyProperties.queueFlags) >= flags) return i;
+
+    Error{} << "Vk::DeviceProperties::tryPickQueueFamily(): no" << flags << "found among" << properties.size() << "queue families";
+    return {};
 }
 
 Containers::Array<DeviceProperties> enumerateDevices(Instance& instance) {
@@ -185,6 +261,34 @@ Debug& operator<<(Debug& debug, const DeviceType value) {
 
     /* Vulkan docs have the values in decimal, so not converting to hex */
     return debug << "(" << Debug::nospace << Int(value) << Debug::nospace << ")";
+}
+
+Debug& operator<<(Debug& debug, const QueueFlag value) {
+    debug << "Vk::QueueFlag" << Debug::nospace;
+
+    switch(value) {
+        /* LCOV_EXCL_START */
+        #define _c(value) case Vk::QueueFlag::value: return debug << "::" << Debug::nospace << #value;
+        _c(Graphics)
+        _c(Compute)
+        _c(Transfer)
+        _c(SparseBinding)
+        _c(Protected)
+        #undef _c
+        /* LCOV_EXCL_STOP */
+    }
+
+    /* Flag bits should be in hex, unlike plain values */
+    return debug << "(" << Debug::nospace << reinterpret_cast<void*>(UnsignedInt(value)) << Debug::nospace << ")";
+}
+
+Debug& operator<<(Debug& debug, const QueueFlags value) {
+    return Containers::enumSetDebugOutput(debug, value, "Vk::QueueFlags{}", {
+        Vk::QueueFlag::Graphics,
+        Vk::QueueFlag::Compute,
+        Vk::QueueFlag::Transfer,
+        Vk::QueueFlag::SparseBinding,
+        Vk::QueueFlag::Protected});
 }
 
 }}
