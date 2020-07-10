@@ -23,13 +23,19 @@
     DEALINGS IN THE SOFTWARE.
 */
 
+#include <sstream>
 #include <Corrade/Containers/Array.h>
+#include <Corrade/Containers/StringStl.h>
 #include <Corrade/Containers/StringView.h>
 #include <Corrade/TestSuite/Tester.h>
 #include <Corrade/TestSuite/Compare/Numeric.h>
+#include <Corrade/Utility/DebugStl.h>
 
 #include "Magnum/Vk/DeviceProperties.h"
+#include "Magnum/Vk/Extensions.h"
+#include "Magnum/Vk/ExtensionProperties.h"
 #include "Magnum/Vk/Instance.h"
+#include "Magnum/Vk/LayerProperties.h"
 #include "Magnum/Vk/Result.h"
 #include "Magnum/Vk/Version.h"
 
@@ -42,13 +48,25 @@ struct DevicePropertiesVkTest: TestSuite::Tester {
     void constructMove();
     void wrap();
 
+    /* Most of this tested already in ExtensionPropertiesVkTest, this only
+       covers what isn't there already */
+    void enumerateExtensions();
+    void enumerateExtensionsWithKhronosValidationLayer();
+    void enumerateExtensionsNonexistentLayer();
+    void extensionIsSupported();
+
     Instance _instance;
 };
 
 DevicePropertiesVkTest::DevicePropertiesVkTest(): _instance{InstanceCreateInfo{arguments().first, arguments().second}} {
     addTests({&DevicePropertiesVkTest::enumerate,
               &DevicePropertiesVkTest::constructMove,
-              &DevicePropertiesVkTest::wrap});
+              &DevicePropertiesVkTest::wrap,
+
+              &DevicePropertiesVkTest::enumerateExtensions,
+              &DevicePropertiesVkTest::enumerateExtensionsWithKhronosValidationLayer,
+              &DevicePropertiesVkTest::enumerateExtensionsNonexistentLayer,
+              &DevicePropertiesVkTest::extensionIsSupported});
 }
 
 void DevicePropertiesVkTest::enumerate() {
@@ -100,6 +118,67 @@ void DevicePropertiesVkTest::wrap() {
 
     Containers::Array<DeviceProperties> devices = enumerateDevices(_instance);
     CORRADE_COMPARE(wrapped.name(), devices[0].name());
+}
+
+void DevicePropertiesVkTest::enumerateExtensions() {
+    Containers::Array<DeviceProperties> devices = enumerateDevices(_instance);
+    CORRADE_VERIFY(!devices.empty());
+
+    ExtensionProperties properties = devices[0].enumerateExtensionProperties();
+    Debug{} << "Available device extension count:" << properties.names().size();
+
+    CORRADE_COMPARE_AS(properties.count(), 0, TestSuite::Compare::Greater);
+
+    /* The extension list should be sorted and unique (so Less, not
+       LessOrEqual) */
+    Containers::ArrayView<const Containers::StringView> extensions = properties.names();
+    for(std::size_t i = 1; i != extensions.size(); ++i) {
+        CORRADE_COMPARE_AS(extensions[i - 1], extensions[i],
+            TestSuite::Compare::Less);
+    }
+}
+
+void DevicePropertiesVkTest::enumerateExtensionsWithKhronosValidationLayer() {
+    if(!enumerateLayerProperties().isSupported("VK_LAYER_KHRONOS_validation"))
+        CORRADE_SKIP("VK_LAYER_KHRONOS_validation not supported, can't test");
+
+    Containers::Array<DeviceProperties> devices = enumerateDevices(_instance);
+    CORRADE_VERIFY(!devices.empty());
+
+    /* There should be more extensions with this layer enabled */
+    ExtensionProperties global = devices[0].enumerateExtensionProperties();
+    ExtensionProperties withKhronosValidation = devices[0].enumerateExtensionProperties({"VK_LAYER_KHRONOS_validation"});
+    CORRADE_COMPARE_AS(global.count(),
+        withKhronosValidation.count(),
+        TestSuite::Compare::Less);
+
+    /* VK_EXT_tooling_info is only in the layer */
+    CORRADE_VERIFY(!global.isSupported("VK_EXT_tooling_info"));
+    CORRADE_VERIFY(withKhronosValidation.isSupported("VK_EXT_tooling_info"));
+}
+
+void DevicePropertiesVkTest::enumerateExtensionsNonexistentLayer() {
+    CORRADE_SKIP("Currently this hits an internal assert, which can't be tested.");
+
+    std::ostringstream out;
+    Error redirectError{&out};
+    enumerateInstanceExtensionProperties({"VK_LAYER_this_doesnt_exist"});
+    CORRADE_COMPARE(out.str(), "TODO");
+}
+
+void DevicePropertiesVkTest::extensionIsSupported() {
+    Containers::Array<DeviceProperties> devices = enumerateDevices(_instance);
+    CORRADE_VERIFY(!devices.empty());
+
+    ExtensionProperties properties = devices[0].enumerateExtensionProperties();
+
+    /* This extension should be available almost always */
+    if(!properties.isSupported("VK_KHR_maintenance1"))
+        CORRADE_SKIP("VK_KHR_maintenance1 not supported, can't fully test");
+
+    /* Verify the overloads that take our extension wrappers work as well */
+    CORRADE_VERIFY(properties.isSupported<Extensions::KHR::maintenance1>());
+    CORRADE_VERIFY(properties.isSupported(Extensions::KHR::maintenance1{}));
 }
 
 }}}}

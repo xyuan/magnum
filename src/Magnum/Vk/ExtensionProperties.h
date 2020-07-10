@@ -223,6 +223,7 @@ class MAGNUM_VK_EXPORT InstanceExtensionProperties: public ExtensionProperties {
         #ifndef DOXYGEN_GENERATING_OUTPUT
         /* The DAMN THING forgets parameter name if this is present, FFS. It
            also lists this among friends, which is AN IMPLEMENTATION DETAIL */
+        friend DeviceProperties;
         friend MAGNUM_VK_EXPORT InstanceExtensionProperties enumerateInstanceExtensionProperties(Containers::ArrayView<const Containers::StringView>);
         #endif
 
